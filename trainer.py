@@ -341,8 +341,6 @@ class Trainer():
             scale = max(self.scale)
 
             for si, s in enumerate([scale]):
-                
-                f= open('5060_flip o.txt', 'w')
                 eval_psnr = 0
                 eval_simm =0
                 tqdm_test = tqdm(self.loader_test, ncols=80)
@@ -385,7 +383,7 @@ class Trainer():
                     #     loss_primary += self.loss(sr[i - 1 - len(sr)], lr[i - len(sr)])
                     #     print("각각의 primary loss : ", loss_primary)
                     
-                    L1_loss = loss_primary.item() / 4000
+                    L1_loss = loss_primary.item() / len(self.loader_test)
                 
                     # ------------ 3. Compute gaze loss (Validation) -----------
                     le_c_list , re_c_list, detected_list = generateEyePatches(sr)
@@ -404,12 +402,16 @@ class Trainer():
                     if self.endPoint_flag:
                         if self.opt.save_results:
                             self.ckp.save_results_nopostfix(filename, sr, s)
+                # eval_simm = eval_simm / len(self.loader_test)
 
-                self.ckp.log[-1, si] = eval_psnr / len(self.loader_test)
-                eval_simm = eval_simm / len(self.loader_test)
-                best = self.ckp.log.max(0)
+                # self.ckp.log[-1, si] = eval_psnr / len(self.loader_test)
+                # best 모델 저장 gaze Loss 로 변경
+                self.ckp.log[-1, si] = total_gaze / len(self.loader_test)
+                
+                best = self.ckp.log.min(0)
+                # print('eval gaze loss {:.4f}:'.format(best))
                 self.ckp.write_log(
-                    '[{} x{}]\tPSNR: {:.2f} (Best: {:.2f} @epoch {})'.format(
+                    '[{} x{}]\GAZE LOSS: {:.4f} (Best: {:.4f} @epoch {})'.format(
                         self.opt.data_test, s,
                         self.ckp.log[-1, si],
                         best[0][si],
