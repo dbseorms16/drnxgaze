@@ -1,0 +1,22 @@
+5060_flip 0.txt
+*.png
+*.zip
+*.jpg
+*.mp4
+*.pdf
+*.log
+*.pt
+*.model
+*.h5
+*.tar
+*.dat
+*.pkl
+*.md
+*.xml
+*.yaml
+*.pyc
+*.npy
+*.bmp
+*.txt
+*.pth
+*.iml
