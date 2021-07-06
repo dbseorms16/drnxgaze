@@ -203,7 +203,7 @@ class Trainer():
             lf =open(log_path, "w+")
         else:
             lf = open(log_path, "a")
-        print(L1_loss)
+        
         lf.write(str(L1_loss.item())+ "\n")
         lf.close()
 
@@ -310,6 +310,7 @@ class Trainer():
         plt.plot(axis, gaze_logs, 'b-')
         plt.savefig('experiments/Training_Gaze_loss.pdf')
         plt.close(fig)
+        plt.close("all")
 
         self.loss.end_log(len(self.loader_train))
         self.error_last = self.loss.log[-1, -1]
@@ -505,6 +506,7 @@ class Trainer():
         plt.grid(True)
         plt.savefig('./experiments/Validation_L1_loss.pdf')
         plt.close(fig)
+        plt.close("all")
 
         if not self.opt.test_only:
             self.ckp.save(self, epoch, is_best=(best[1][0] + 1 == epoch))
