@@ -44,8 +44,8 @@ class Trainer():
         # self.endPoint_flag = False
 
     def train(self):
-        # for name, param in self.model.named_parameters():
-        #         param.requires_grad = False
+        for name, param in self.model.named_parameters():
+                param.requires_grad = False
 
         label_txt = open("dataset/integrated_label.txt" , "r")
         labels = label_txt.readlines()

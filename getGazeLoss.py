@@ -28,8 +28,8 @@ _model = GazeEstimationModelVGG(num_out =2)
 _model.cuda()
 _model.eval()
 _model.load_state_dict(torch.load(ckpt))
-for name, param in _model.named_parameters():
-    param.requires_grad = False
+# for name, param in _model.named_parameters():
+    # param.requires_grad = False
 
 # image_root_path = "./train_SRImage"
 # left_path = os.path.join(image_root_path, "left","l")
