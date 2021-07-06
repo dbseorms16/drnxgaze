@@ -22,12 +22,8 @@ _param_num = {
 # ckpt = "rt_gene/model_nets/Alldata_1px_all_epoch=5-val_loss=0.551.model"
 
 # NPII weight
-ckpt = "rt_gene/model_nets/gaze_model_pytorch_vgg16_prl_mpii_allsubjects1.model"
+# ckpt = "rt_gene/model_nets/gaze_model_pytorch_vgg16_prl_mpii_allsubjects1.model"
 
-_model = GazeEstimationModelVGG(num_out =2)
-_model.cuda()
-_model.eval()
-_model.load_state_dict(torch.load(ckpt))
 # for name, param in _model.named_parameters():
     # param.requires_grad = False
 
@@ -103,57 +99,24 @@ def generateEyePatches(sr_batch_size):
 
     return le_c_list, re_c_list, detected_list
 
-def computeGazeLoss(labels, le_c_list, re_c_list, detected_list,image_names):
+def computeGazeLoss(angular_out, gaze_batch_label):
     _criterion = _loss_fn.get("mse")()
-
     #------------------------------load Label------------------------------
-
-    new_image_names = []
-    # print("Image names : ",image_names)
-    # print("Detected list index : ",detected_list)
-    for i in detected_list:
-        new_image_names.append(image_names[i])
-    # print('New image list : ',new_image_names)
-
-    head_batch_label, gaze_batch_label =loadLabel(labels,new_image_names)
-    
-    head_batch_label = head_batch_label.cuda()
-    gaze_batch_label = gaze_batch_label.cuda()
-
-    angular_out = _model(le_c_list, re_c_list, head_batch_label)
-
     gaze_loss = _criterion(angular_out, gaze_batch_label).cuda()
 
+    return gaze_loss
 
-    return gaze_loss, new_image_names
-
-def computeGazeLoss_gazetest(labels, le_c_list, re_c_list, detected_list, image_names):
-    _criterion = _loss_fn.get("mse")()
-
-    #------------------------------load Label------------------------------
-
-    new_image_names = []
-    # print("Image names : ",image_names)
-    # print("Detected list index : ",detected_list)
-    for i in detected_list:
-        new_image_names.append(image_names)
-    # print('New image list : ',new_image_names)
-
-    head_batch_label, gaze_batch_label =loadLabel_gazetest(labels,new_image_names)
-    
-    head_batch_label = head_batch_label.cuda()
-    gaze_batch_label = gaze_batch_label.cuda()
-
-    angular_out = _model(le_c_list, re_c_list, head_batch_label)
-
-    gaze_loss = _criterion(angular_out, gaze_batch_label).cuda()
-
-    # to draw gaze vector
-    gaze_list = [new_image_names, angular_out, gaze_batch_label]
-
-    return gaze_loss, new_image_names, gaze_list
-
-
+def Gaze_model_save(opt, gaze_model, is_best=False):
+    path = opt.gaze_model_save_path
+    torch.save(
+        gaze_model.state_dict(), 
+        os.path.join(path, 'gaze_model_latest.pt')
+    )
+    if is_best:
+            torch.save(
+                gaze_model.state_dict(),
+                os.path.join(path, 'gaze_model_best.pt')
+            )
 
 def loadLabel(labels,names):
     gaze_batch_label = []

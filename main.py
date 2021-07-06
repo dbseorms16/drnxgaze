@@ -1,5 +1,6 @@
 
 from multiprocessing.spawn import freeze_support
+from rt_gene.gaze_estimation_models_pytorch import GazeEstimationModelVGG
 
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
@@ -19,6 +20,7 @@ checkpoint = Checkpoint(args)
 if checkpoint.ok:
     loader = data.Data(args)
     model = model.Model(args, checkpoint)
+    gaze_model = GazeEstimationModelVGG(num_out =2).cuda()
     
     # For save Weights of RCAB seperately
     # target = model.model
@@ -37,7 +39,7 @@ if checkpoint.ok:
 
     # loss = loss.Loss(args, checkpoint) if not args.test_only else None
     loss = loss.Loss(args, checkpoint)
-    t = Trainer(args, loader, model, loss, checkpoint)
+    t = Trainer(args, loader, model, gaze_model, loss, checkpoint)
     def main():
         while not t.terminate():
             t.train()

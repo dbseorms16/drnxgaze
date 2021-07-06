@@ -83,7 +83,11 @@ parser.add_argument('--ratio', type=int, default=4,
                     help='save output results')
 parser.add_argument('--gaze_train', type=bool, default=False,
                     help='get gaze loss')
-
+parser.add_argument('--gaze_model_save_path', type=str, default='./experiments/model',
+                    help='gaze model save path')
+parser.add_argument('--init_gaze_model', type=str, 
+                    default='./rt_gene/model_nets/gaze_model_pytorch_vgg16_prl_mpii_allsubjects1.model',
+                    help='Init gaze model path')
 
 args = parser.parse_args()
 

@@ -23,13 +23,14 @@ import torchvision
 
 
 class Trainer():
-    def __init__(self, opt, loader, my_model, my_loss,ckp):
+    def __init__(self, opt, loader, my_model, gaze_model, my_loss,ckp):
         self.opt = opt
         self.scale = opt.scale
         self.ckp = ckp
         self.loader_train = loader.loader_train
         self.loader_test = loader.loader_test
         self.model = my_model
+        self.gaze_model = gaze_model
         self.loss = my_loss
         self.loss2 = my_loss
         self.optimizer = utility.make_optimizer(opt, self.model)
@@ -44,6 +45,7 @@ class Trainer():
         # self.endPoint_flag = False
 
     def train(self):
+        
         for name, param in self.model.named_parameters():
                 param.requires_grad = False
 
@@ -53,6 +55,12 @@ class Trainer():
         total_detected = 0
 
         epoch = self.scheduler.last_epoch + 1
+
+        if epoch == 1:
+            self.gaze_model.load_state_dict(torch.load(self.opt.init_gaze_model))
+        else :
+            self.gaze_model.load_state_dict(torch.load(self.opt.gaze_model_save_path + '/gaze_model_latest.pt'))
+
         lr = self.scheduler.get_lr()[0]
        
         self.ckp.set_epoch(epoch)
@@ -62,6 +70,7 @@ class Trainer():
         )
         self.loss.start_log()
         self.model.train()
+        self.gaze_model.train()
         timer_data, timer_model = utility.timer(), utility.timer()
         detection_count = 0
         psnr = 0
@@ -134,6 +143,7 @@ class Trainer():
             # 현재 변수 sr은 sr image (<class 'torch.Tensor'>)가 담긴 리스트이다.
             # 이 부분까지는 tensor를 전달한다. -> getGazeLoss.py로 넘어감.
 
+            #======================Gaze==================================================#
             le_c_list , re_c_list, detected_list = generateEyePatches(sr[-1])
             # le_c_list , re_c_list, detected_list = generateEyePatches(hr)
             # print("Detected images : ",len(detected_list))
@@ -141,8 +151,20 @@ class Trainer():
                 continue
             detection_count += len(detected_list)
 
-            gaze_loss, new_image_names  = computeGazeLoss(labels, le_c_list, re_c_list, detected_list, image_names)
-            # ------------------compute gaze_loss----------------
+            new_image_names = []
+            for i in detected_list:
+                new_image_names.append(image_names[i])
+
+            head_batch_label, gaze_batch_label = loadLabel(labels,new_image_names)
+    
+            head_batch_label = head_batch_label.cuda()
+            gaze_batch_label = gaze_batch_label.cuda()
+
+            angular_out = self.gaze_model(le_c_list, re_c_list, head_batch_label)
+
+            gaze_loss  = computeGazeLoss(angular_out, gaze_batch_label)
+
+            # ----------------save gaze image------------------
 
             if len(le_c_list[-1]) == 0 or len(re_c_list[-1]) == 0:
                 continue
@@ -328,6 +350,7 @@ class Trainer():
         self.ckp.write_log('\nEvaluation:')
         self.ckp.add_log(torch.zeros(1, 1))
         self.model.eval()
+        self.gaze_model.eval()
 
         timer_test = utility.timer()
         total_gaze = 0
@@ -392,8 +415,14 @@ class Trainer():
                     if type(le_c_list) != torch.Tensor :
                         continue
 
-                    # gaze label이 모두 존재하는 test set에 대한 gaze loss를 계산한다.
-                    gaze_loss, _, gaze_list = computeGazeLoss_gazetest(labels, le_c_list, re_c_list, detected_list,filename)
+                    head_batch_label, gaze_batch_label = loadLabel_gazetest(labels,[filename])
+
+                    head_batch_label = head_batch_label.cuda()
+                    gaze_batch_label = gaze_batch_label.cuda()
+
+                    angular_out = self.gaze_model(le_c_list, re_c_list, head_batch_label)
+
+                    gaze_loss = computeGazeLoss(angular_out, gaze_batch_label)
 
                     total_gaze += gaze_loss
                     detected_img += 1
@@ -403,7 +432,7 @@ class Trainer():
                     if self.endPoint_flag:
                         if self.opt.save_results:
                             self.ckp.save_results_nopostfix(filename, sr, s)
-                # eval_simm = eval_simm / len(self.loader_test)
+                # eval_simm = eval_simm / len(self.loader_test)s
 
                 # self.ckp.log[-1, si] = eval_psnr / len(self.loader_test)
                 # best 모델 저장 gaze Loss 로 변경
@@ -425,6 +454,10 @@ class Trainer():
                 # print('SIMM:',eval_simm)
                 # print('DRN loss : ', DRN_loss)
 
+        
+        if not self.opt.test_only:
+            self.ckp.save(self, epoch, is_best=(best[1][0] + 1 == epoch))
+            Gaze_model_save(self.opt, self.gaze_model, is_best=(best[1][0] + 1 == epoch))
 
         self.ckp.write_log(
             'Total time: {:.2f}s\n'.format(timer_test.toc()), refresh=True
@@ -508,8 +541,6 @@ class Trainer():
         plt.close(fig)
         plt.close("all")
 
-        if not self.opt.test_only:
-            self.ckp.save(self, epoch, is_best=(best[1][0] + 1 == epoch))
 
     def step(self):
         self.scheduler.step()

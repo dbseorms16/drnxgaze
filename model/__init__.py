@@ -57,9 +57,9 @@ class Model(nn.Module):
         # compute parameter
         # print(model.)
         ratio = args.ratio
-        num_parameter = self.count_parameters(self.model, ratio)
+        # num_parameter = self.count_parameters(self.model, ratio)
 
-        ckp.write_log(f"The number of parameters is {num_parameter / 1000 ** 2:.2f}M")
+        # ckp.write_log(f"The number of parameters is {num_parameter / 1000 ** 2:.2f}M")
 
     def forward(self, x, idx_scale=0):
         self.idx_scale = idx_scale
@@ -84,61 +84,61 @@ class Model(nn.Module):
         target = self.get_model()
         return target.state_dict(**kwargs)
     
-    def count_parameters(self, model, ratio):
-        # DRN's Scale factor
-        ratio = ratio
-        # File route of Modified parameters.txt, Scale에 따라서 각각 저장된다.
-        route = './DRN_params/(X%d)Modified parameters.txt'%ratio
-        param_file = open(route,'w')
+    # def count_parameters(self, model, ratio):
+    #     # DRN's Scale factor
+    #     ratio = ratio
+    #     # File route of Modified parameters.txt, Scale에 따라서 각각 저장된다.
+    #     route = './DRN_params/(X%d)Modified parameters.txt'%ratio
+    #     param_file = open(route,'w')
         
-        # Part 별로 total parameters summation
-        sub_mean = 0
-        head = 0
-        down_block = 0
-        up_blocks_0 = 0
-        up_blocks_1 = 0
-        tail = 0
-        add_mean = 0
+    #     # Part 별로 total parameters summation
+    #     sub_mean = 0
+    #     head = 0
+    #     down_block = 0
+    #     up_blocks_0 = 0
+    #     up_blocks_1 = 0
+    #     tail = 0
+    #     add_mean = 0
         
-        for name, p in model.named_parameters():
-            weight_name = str(name)
-            param = p.numel()
-            if 'up_blocks.0' in weight_name:
-                up_blocks_0 += param  
-            elif 'up_blocks.1' in weight_name:
-                up_blocks_1 += param
-            elif 'tail' in weight_name:
-                tail += param
-            elif 'head' in weight_name:
-                head += param
-            elif 'down' in weight_name:
-                down_block += param
-            elif 'sub_mean' in weight_name:
-                sub_mean += param
-            else:
-                add_mean += param
+    #     for name, p in model.named_parameters():
+    #         weight_name = str(name)
+    #         param = p.numel()
+    #         if 'up_blocks.0' in weight_name:
+    #             up_blocks_0 += param  
+    #         elif 'up_blocks.1' in weight_name:
+    #             up_blocks_1 += param
+    #         elif 'tail' in weight_name:
+    #             tail += param
+    #         elif 'head' in weight_name:
+    #             head += param
+    #         elif 'down' in weight_name:
+    #             down_block += param
+    #         elif 'sub_mean' in weight_name:
+    #             sub_mean += param
+    #         else:
+    #             add_mean += param
                 
-            param_file.write(f'name:{name} \n')
-            param_file.write(f'param.shape:{p.shape} \n')
-            param_file.write(f'param.shape:{p.numel()} \n')
-            param_file.write('======================================\n')
+    #         param_file.write(f'name:{name} \n')
+    #         param_file.write(f'param.shape:{p.shape} \n')
+    #         param_file.write(f'param.shape:{p.numel()} \n')
+    #         param_file.write('======================================\n')
         
-        param_sum = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        param_file.write(f'\nThe number of parameters : {param_sum}')
-        param_file.write(f' - about {param_sum / 1000 ** 2:.2f}M\n')
-        param_file.write(f'\nParameters of sub_mean : {sub_mean}\n')
-        param_file.write(f'\nParameters of head : {head}\n')
-        param_file.write(f'\nParameters of down_block : {down_block}\n')
-        param_file.write(f'\nParameters of up_block_0 : {up_blocks_0}')
-        param_file.write(f' - about {up_blocks_0 / 1000 ** 2:.2f}M\n')
-        param_file.write(f'\nParameters of up_block_1 : {up_blocks_1}')
-        param_file.write(f' - about {up_blocks_1 / 1000 ** 2:.2f}M\n')
-        param_file.write(f'\nParameters of tail : {tail}\n')
-        param_file.write(f'\nParameters of add_mean : {add_mean}\n')
-        param_file.write(f'\nFrom sub_mean to add_mean\n')
-        param_file.write(f'\n{sub_mean} {head} {down_block} {up_blocks_0} {up_blocks_1} {tail} {add_mean}\n')
-        param_file.close()
-        return param_sum
+    #     param_sum = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    #     param_file.write(f'\nThe number of parameters : {param_sum}')
+    #     param_file.write(f' - about {param_sum / 1000 ** 2:.2f}M\n')
+    #     param_file.write(f'\nParameters of sub_mean : {sub_mean}\n')
+    #     param_file.write(f'\nParameters of head : {head}\n')
+    #     param_file.write(f'\nParameters of down_block : {down_block}\n')
+    #     param_file.write(f'\nParameters of up_block_0 : {up_blocks_0}')
+    #     param_file.write(f' - about {up_blocks_0 / 1000 ** 2:.2f}M\n')
+    #     param_file.write(f'\nParameters of up_block_1 : {up_blocks_1}')
+    #     param_file.write(f' - about {up_blocks_1 / 1000 ** 2:.2f}M\n')
+    #     param_file.write(f'\nParameters of tail : {tail}\n')
+    #     param_file.write(f'\nParameters of add_mean : {add_mean}\n')
+    #     param_file.write(f'\nFrom sub_mean to add_mean\n')
+    #     param_file.write(f'\n{sub_mean} {head} {down_block} {up_blocks_0} {up_blocks_1} {tail} {add_mean}\n')
+    #     param_file.close()
+    #     return param_sum
 
             # if self.opt.n_GPUs > 1:
                 # return sum(p.numel() for p in model.parameters() if p.requires_grad)
