@@ -161,16 +161,16 @@ class Model(nn.Module):
         route = './DRN_params/(X%d)State_dict.txt'%args.ratio
         dict_file = open(route,'w')
         num_list = range(RCAB_num)
-        weight_dic = {}
-        for weight_name in target.state_dict():
-            name_space = weight_name.split('.')
-            if name_space[0] =="up_blocks" and int(name_space[1]) == 0 and int(name_space[2]) < RCAB_num:
-                weight_dic[weight_name] = target.state_dict()[weight_name]
+        # weight_dic = {}
+        # for weight_name in target.state_dict():
+        #     name_space = weight_name.split('.')
+        #     if name_space[0] =="up_blocks" and int(name_space[1]) == 0 and int(name_space[2]) < RCAB_num:
+        #         weight_dic[weight_name] = target.state_dict()[weight_name]
         
-        file_name = '(X%d)_up_blocks_weight'%args.ratio
-        torch.save(weight_dic, os.path.join(path, 'model', args.data_train + file_name+str(args.scale[len(args.scale)-1])+'.pt'))
-        dict_file.write(str(weight_dic))
-        dict_file.close()
+        # file_name = '(X%d)_up_blocks_weight'%args.ratio
+        # torch.save(weight_dic, os.path.join(path, 'model', args.data_train + file_name+str(args.scale[len(args.scale)-1])+'.pt'))
+        # dict_file.write(str(weight_dic))
+        # dict_file.close()
 
         if is_best:
             torch.save(

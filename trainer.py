@@ -10,7 +10,6 @@ from option import args
 from torchvision import transforms 
 from PIL import Image
 import matplotlib
-matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import copy
 import h5py
@@ -21,7 +20,7 @@ from torchvision.utils import save_image
 from getGazeLoss import *
 import torchvision
 
-
+matplotlib.use("Agg")
 class Trainer():
     def __init__(self, opt, loader, my_model, gaze_model, my_loss,ckp):
         self.opt = opt
@@ -40,14 +39,19 @@ class Trainer():
         self.dual_scheduler = utility.make_dual_scheduler(opt, self.dual_optimizers)
         self.error_last = 1e8
         
-        # SR test result save
         self.endPoint_flag = True
-        # self.endPoint_flag = False
 
     def train(self):
-        
-        for name, param in self.model.named_parameters():
-                param.requires_grad = False
+        self.gaze_model.load_state_dict(torch.load(self.opt.init_gaze_model))
+        # gaze_train 시 sr Freeze
+        if self.opt.freeze == 'sr' :
+            for name, param in self.model.named_parameters():
+                    param.requires_grad = False
+        elif self.opt.freeze == 'gaze':
+            if epoch != 1:
+                self.gaze_model.load_state_dict(torch.load(self.opt.gaze_model_save_path + '/gaze_model_latest.pt'))
+            for name, param in self.gaze_model.named_parameters():
+                    param.requires_grad = False
 
         label_txt = open("dataset/integrated_label.txt" , "r")
         labels = label_txt.readlines()
@@ -56,12 +60,7 @@ class Trainer():
 
         epoch = self.scheduler.last_epoch + 1
 
-        if epoch == 1:
-            self.gaze_model.load_state_dict(torch.load(self.opt.init_gaze_model))
-        else :
-            self.gaze_model.load_state_dict(torch.load(self.opt.gaze_model_save_path + '/gaze_model_latest.pt'))
-
-        lr = self.scheduler.get_lr()[0]
+        lr = self.scheduler.get_last_lr()[0]
        
         self.ckp.set_epoch(epoch)
 
@@ -161,9 +160,7 @@ class Trainer():
             gaze_batch_label = gaze_batch_label.cuda()
 
             angular_out = self.gaze_model(le_c_list, re_c_list, head_batch_label)
-
             gaze_loss  = computeGazeLoss(angular_out, gaze_batch_label)
-
             # ----------------save gaze image------------------
 
             if len(le_c_list[-1]) == 0 or len(re_c_list[-1]) == 0:
@@ -187,7 +184,7 @@ class Trainer():
             batch_gaze_loss.append(gaze_loss.item())
 
             # compute total loss
-            loss = loss_primary + loss_dual * self.opt.dual_weight + gaze_loss * 0.1
+            loss = loss_primary + loss_dual * self.opt.dual_weight + gaze_loss 
             L1_loss = loss_primary + loss_dual * self.opt.dual_weight
             
             if loss.item() < self.opt.skip_threshold * self.error_last:
@@ -247,6 +244,7 @@ class Trainer():
         plt.grid(True)
         plt.savefig('./experiments/Training_L1_loss.pdf')
         plt.close(fig)
+        plt.close('all')
 
         # ------------draw psnr graph -----------
         log_path = "experiments/psnr_log(train).log"
@@ -283,6 +281,7 @@ class Trainer():
         # plt.savefig('{}/test_{}.pdf'.format(self.dir, self.opt.data_test))
         plt.savefig('./experiments/Training_PSNR.pdf')
         plt.close(fig)
+        plt.close('all')
 
         # ------------draw gaze loss graph -----------
         epoch_gaze_loss = 0 
@@ -410,7 +409,8 @@ class Trainer():
                     L1_loss = loss_primary.item() / len(self.loader_test)
                 
                     # ------------ 3. Compute gaze loss (Validation) -----------
-                    le_c_list , re_c_list, detected_list = generateEyePatches(sr)
+                    # le_c_list , re_c_list, detected_list = generateEyePatches(sr)
+                    le_c_list , re_c_list, detected_list = generateEyePatches(hr)
         
                     if type(le_c_list) != torch.Tensor :
                         continue
@@ -434,7 +434,7 @@ class Trainer():
                             self.ckp.save_results_nopostfix(filename, sr, s)
                 # eval_simm = eval_simm / len(self.loader_test)s
 
-                # self.ckp.log[-1, si] = eval_psnr / len(self.loader_test)
+                validation_psnr = eval_psnr / len(self.loader_test)
                 # best 모델 저장 gaze Loss 로 변경
                 self.ckp.log[-1, si] = total_gaze / len(self.loader_test)
                 
@@ -468,9 +468,49 @@ class Trainer():
         print('Total_gaze : ', total_gaze)
         print('average : ', total_gaze / detected_img)
 
+        # ------------draw psnr validation graph -----------
+        log_path = "experiments/psnr_log(validation).log"
+
+        if epoch == 1:
+            lf =open(log_path, "w+")
+        else:
+            lf = open(log_path, "a")
+        
+        lf.write(str(validation_psnr)+"\n")
+        lf.close()
+
+        psnr_logs = []
+        lf = open(log_path, "r")
+        psnr_log = lf.readline()
+        while(psnr_log !=""):
+            psnr_logs.append(float(psnr_log))
+            psnr_log = lf.readline()
+        
+        axis = np.linspace(1, epoch, epoch)
+        label = 'SR on Validation set'
+        fig = plt.figure()
+        plt.title(label)
+        for idx_scale, scale in enumerate([self.opt.scale[0]]):
+            plt.plot(
+                axis,
+                psnr_logs,
+                label='Scale {}'.format(scale)
+            )
+        plt.legend()
+        plt.xlabel('Epochs')
+        plt.ylabel('PSNR')
+        plt.grid(True)
+        # plt.savefig('{}/test_{}.pdf'.format(self.dir, self.opt.data_test))
+        plt.savefig('./experiments/Validation_PSNR.pdf')
+        plt.close(fig)
+        plt.close("all")
+
         # ------------draw gaze loss graph (validation)-----------
 
         total_gaze /= detected_img
+        # Loss가 너무 많이 튀면 보기 힘들어서 한계치 
+        if total_gaze >= 0.2:
+            total_gaze = 0.2
         log_path = "experiments/gaze_loss(validation).log"
         
         epoch = self.scheduler.last_epoch
@@ -509,6 +549,7 @@ class Trainer():
         plt.plot(axis,train_gaze_logs, 'b-')
         plt.savefig('experiments/Validation_Gaze_loss.pdf')
         plt.close(fig)
+        plt.close("all")
 
         # ------------draw L1 loss graph (validation)-----------
         log_path = "experiments/loss_log(validation).log"

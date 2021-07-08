@@ -43,7 +43,7 @@ parser.add_argument('--negval', type=float, default=0.2,
                     help='Negative value parameter for Leaky ReLU')
 # parser.add_argument('--test_every', type=int, default = 12,
 #                     help='do test per every N batches')
-parser.add_argument('--test_every', type=int, default = 1250,
+parser.add_argument('--test_every', type=int, default = 6250,
                     help='do test per every N batches')
 parser.add_argument('--epochs', type=int, default=10000,
                     help='number of epochs to train')
@@ -85,6 +85,10 @@ parser.add_argument('--gaze_train', type=bool, default=False,
                     help='get gaze loss')
 parser.add_argument('--gaze_model_save_path', type=str, default='./experiments/model',
                     help='gaze model save path')
+                    
+parser.add_argument('--freeze', type=str, default='gaze',
+                    help='required grad model')
+
 parser.add_argument('--init_gaze_model', type=str, 
                     default='./rt_gene/model_nets/gaze_model_pytorch_vgg16_prl_mpii_allsubjects1.model',
                     help='Init gaze model path')
