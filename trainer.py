@@ -42,6 +42,8 @@ class Trainer():
         self.endPoint_flag = True
 
     def train(self):
+        epoch = self.scheduler.last_epoch + 1
+
         self.gaze_model.load_state_dict(torch.load(self.opt.init_gaze_model))
         # gaze_train 시 sr Freeze
         if self.opt.freeze == 'sr' :
@@ -58,7 +60,6 @@ class Trainer():
         batch_gaze_loss=[]
         total_detected = 0
 
-        epoch = self.scheduler.last_epoch + 1
 
         lr = self.scheduler.get_last_lr()[0]
        
@@ -351,6 +352,9 @@ class Trainer():
         self.model.eval()
         self.gaze_model.eval()
 
+        if self.opt.test_only:
+            self.gaze_model.load_state_dict(torch.load(self.opt.pre_gaze))
+
         timer_test = utility.timer()
         total_gaze = 0
         detected_img = 0
@@ -409,8 +413,8 @@ class Trainer():
                     L1_loss = loss_primary.item() / len(self.loader_test)
                 
                     # ------------ 3. Compute gaze loss (Validation) -----------
-                    # le_c_list , re_c_list, detected_list = generateEyePatches(sr)
-                    le_c_list , re_c_list, detected_list = generateEyePatches(hr)
+                    le_c_list , re_c_list, detected_list = generateEyePatches(sr)
+                    # le_c_list , re_c_list, detected_list = generateEyePatches(hr)
         
                     if type(le_c_list) != torch.Tensor :
                         continue
@@ -421,8 +425,8 @@ class Trainer():
                     gaze_batch_label = gaze_batch_label.cuda()
 
                     angular_out = self.gaze_model(le_c_list, re_c_list, head_batch_label)
-
                     gaze_loss = computeGazeLoss(angular_out, gaze_batch_label)
+                    # print(filename, angular_out, gaze_loss)
 
                     total_gaze += gaze_loss
                     detected_img += 1
@@ -433,7 +437,7 @@ class Trainer():
                         if self.opt.save_results:
                             self.ckp.save_results_nopostfix(filename, sr, s)
                 # eval_simm = eval_simm / len(self.loader_test)s
-
+                
                 validation_psnr = eval_psnr / len(self.loader_test)
                 # best 모델 저장 gaze Loss 로 변경
                 self.ckp.log[-1, si] = total_gaze / len(self.loader_test)
@@ -450,7 +454,8 @@ class Trainer():
                 )
                 
                 # print("TOTAL IMAGES : ", detected_img)
-                # print("TOTAL GAZE : ", gaze_loss)
+                print("TOTAL GAZE : ", gaze_loss)
+                print("TOTAL GAZE : ", gaze_loss / detected_img)
                 # print('SIMM:',eval_simm)
                 # print('DRN loss : ', DRN_loss)
 
