@@ -93,7 +93,7 @@ parser.add_argument('--pre_gaze', type=str, default='./experiments/model',
                     help='pretrain gaze model')
 
 parser.add_argument('--init_gaze_model', type=str, 
-                    default='./rt_gene/model_nets/gaze_model_pytorch_vgg16_prl_mpii_allsubjects1.model',
+                    default='./trained_models/gaze_model_best.pt',
                     help='Init gaze model path')
 
 args = parser.parse_args()

@@ -1,6 +1,6 @@
 
 from multiprocessing.spawn import freeze_support
-from rt_gene.gaze_estimation_models_pytorch import GazeEstimationModelVGG
+from rt_gene.gaze_estimation_models_pytorch import GazeModel
 
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
@@ -20,22 +20,7 @@ checkpoint = Checkpoint(args)
 if checkpoint.ok:
     loader = data.Data(args)
     model = model.Model(args, checkpoint)
-    gaze_model = GazeEstimationModelVGG(num_out =2).cuda()
-    
-    # For save Weights of RCAB seperately
-    # target = model.model
-    # RCAB_num = int(args.n_blocks)
-
-    # route = './DRN_params/(X%d)State_dict.txt'%args.ratio
-    # dict_file = open(route,'w')
-    # num_list = range(RCAB_num)
-    # weight_dic = {}
-    # for weight_name in target.state_dict() :
-    #     name_space = weight_name.split('.')
-    #     if name_space[0] =="up_blocks" and int(name_space[2]) < RCAB_num:
-    #         weight_dic[weight_name] = target.state_dict()[weight_name] 
-    # dict_file.write(str(weight_dic))
-    # dict_file.close()
+    gaze_model = GazeModel(args).cuda()
 
     # loss = loss.Loss(args, checkpoint) if not args.test_only else None
     loss = loss.Loss(args, checkpoint)

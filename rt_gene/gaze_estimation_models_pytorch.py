@@ -254,3 +254,28 @@ class GazeEstimationModelVGG(GazeEstimationAbstractModel):
         self.xl, self.xr, self.concat, self.fc = GazeEstimationAbstractModel._create_fc_layers(in_features=_left_model.classifier[0].in_features,
                                                                                                out_features=num_out)
         GazeEstimationAbstractModel._init_weights(self.modules())
+       
+def make_model():
+    return GazeEstimationModelVGG(num_out=2)
+
+class GazeModel(nn.Module):
+    def __init__(self, opt):
+        super(GazeModel, self).__init__()
+        print('Making Gaze model...')
+        self.opt = opt
+        self.n_GPUs = opt.n_GPUs
+        self.device = torch.device('cpu' if opt.cpu else 'cuda')
+        self.model = make_model().to(self.device)
+        self.load(opt.pre_gaze, cpu=opt.cpu)
+
+    def load(self, pre_gaze, cpu=False):
+        kwargs = {}
+        #### load primal model ####
+        if pre_gaze != '.':
+            print('Loading gaze model from {}'.format(pre_gaze))
+            self.model.load_state_dict(
+                torch.load(pre_gaze, **kwargs),
+                strict=False
+            )
+    def forward(self, le_c_list, re_c_list, head_batch_label):
+        return self.model(le_c_list, re_c_list, head_batch_label)

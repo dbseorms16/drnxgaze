@@ -29,7 +29,6 @@ class Trainer():
         self.loader_train = loader.loader_train
         self.loader_test = loader.loader_test
         self.model = my_model
-        self.gaze_model = gaze_model
         self.loss = my_loss
         self.loss2 = my_loss
         self.optimizer = utility.make_optimizer(opt, self.model)
@@ -37,6 +36,10 @@ class Trainer():
         self.dual_models = self.model.dual_models
         self.dual_optimizers = utility.make_dual_optimizer(opt, self.dual_models)
         self.dual_scheduler = utility.make_dual_scheduler(opt, self.dual_optimizers)
+        
+        self.gaze_model = gaze_model
+        self.gaze_model_optimizer = utility.make_gaze_model_optimizer(opt, self.gaze_model)
+        self.gaze_model_schedule = utility.make_gaze_model_scheduler(opt, self.gaze_model_optimizer)
         self.error_last = 1e8
         
         self.endPoint_flag = True
@@ -44,14 +47,15 @@ class Trainer():
     def train(self):
         epoch = self.scheduler.last_epoch + 1
 
-        self.gaze_model.load_state_dict(torch.load(self.opt.init_gaze_model))
         # gaze_train 시 sr Freeze
         if self.opt.freeze == 'sr' :
             for name, param in self.model.named_parameters():
                     param.requires_grad = False
+            for i in range(len(self.dual_models)):
+                for name, param in self.dual_models[i].named_parameters():
+                    param.requires_grad = False
+                    
         elif self.opt.freeze == 'gaze':
-            if epoch != 1:
-                self.gaze_model.load_state_dict(torch.load(self.opt.gaze_model_save_path + '/gaze_model_latest.pt'))
             for name, param in self.gaze_model.named_parameters():
                     param.requires_grad = False
 
@@ -77,11 +81,11 @@ class Trainer():
         for batch, (lr, hr, image_names) in enumerate(self.loader_train):
             # print("loader_train length : ",len(self.loader_train))
             lr, hr = self.prepare(lr, hr)
-            
             timer_data.hold()
             timer_model.tic()
             
             self.optimizer.zero_grad() 
+            self.gaze_model_optimizer.zero_grad() 
 
             for i in range(len(self.dual_optimizers)):
                 self.dual_optimizers[i].zero_grad()
@@ -164,22 +168,22 @@ class Trainer():
             gaze_loss  = computeGazeLoss(angular_out, gaze_batch_label)
             # ----------------save gaze image------------------
 
-            if len(le_c_list[-1]) == 0 or len(re_c_list[-1]) == 0:
-                continue
-            else:
-                left_root_path = "./train_SRImage/left_eye"
-                face_path = os.path.join(left_root_path, "face/%d_epoch/"%self.scheduler.last_epoch)
-                os.makedirs(face_path, exist_ok = True)
-                # print("le_c_list : ",len(le_c_list))
-                for i in range(len(le_c_list)):
-                    save_image(le_c_list[i]/255, (os.path.join(face_path, new_image_names[i]+'.jpg')))
+            # if len(le_c_list[-1]) == 0 or len(re_c_list[-1]) == 0:
+            #     continue
+            # else:
+            #     left_root_path = "./train_SRImage/left_eye"
+            #     face_path = os.path.join(left_root_path, "face/%d_epoch/"%self.scheduler.last_epoch)
+            #     os.makedirs(face_path, exist_ok = True)
+            #     # print("le_c_list : ",len(le_c_list))
+            #     for i in range(len(le_c_list)):
+            #         save_image(le_c_list[i]/255, (os.path.join(face_path, new_image_names[i]+'.jpg')))
 
-                right_root_path = "./train_SRImage/right_eye"
-                face_path = os.path.join(right_root_path, "face/%d_epoch/"%self.scheduler.last_epoch)
-                os.makedirs(face_path, exist_ok = True)
-                # print("re_c_list : ",len(re_c_list))
-                for i in range(len(re_c_list)):
-                    save_image(re_c_list[i]/255, (os.path.join(face_path, new_image_names[i]+'.jpg')))
+            #     right_root_path = "./train_SRImage/right_eye"
+            #     face_path = os.path.join(right_root_path, "face/%d_epoch/"%self.scheduler.last_epoch)
+            #     os.makedirs(face_path, exist_ok = True)
+            #     # print("re_c_list : ",len(re_c_list))
+            #     for i in range(len(re_c_list)):
+            #         save_image(re_c_list[i]/255, (os.path.join(face_path, new_image_names[i]+'.jpg')))
 
             # self.ckp.write_log("GE_Loss : "+str(gaze_loss.item()))
             batch_gaze_loss.append(gaze_loss.item())
@@ -192,6 +196,7 @@ class Trainer():
                 loss.backward(retain_graph=True)
                 # print("backward: "+str(loss.item()))
                 self.optimizer.step()
+                self.gaze_model_optimizer.step()
                 for i in range(len(self.dual_optimizers)):
                     self.dual_optimizers[i].step()
             else:
@@ -235,7 +240,7 @@ class Trainer():
             loss_log = lf.readline()
         
         axis = np.linspace(1, epoch, epoch)
-        label = 'L1 Loss for Validation'
+        label = 'L1 Loss for Training'
         fig = plt.figure()
         plt.title(label)
         plt.plot(axis, loss_logs, label=label)
@@ -325,9 +330,9 @@ class Trainer():
         label = 'Gaze on Training set'
 
         y = gaze_logs
-        plt.title('MPII Loss for Training')
+        plt.title('MPII Gaze Loss for Training')
         plt.xlabel('epoch')
-        plt.ylabel('MPII loss (MSE for angular)')
+        plt.ylabel('MPII Gaze loss (MSE for angular)')
         plt.grid(True)
         plt.plot(axis, gaze_logs, 'b-')
         plt.savefig('experiments/Training_Gaze_loss.pdf')
@@ -351,9 +356,6 @@ class Trainer():
         self.ckp.add_log(torch.zeros(1, 1))
         self.model.eval()
         self.gaze_model.eval()
-
-        if self.opt.test_only:
-            self.gaze_model.load_state_dict(torch.load(self.opt.pre_gaze))
 
         timer_test = utility.timer()
         total_gaze = 0
@@ -547,9 +549,9 @@ class Trainer():
         axis = np.linspace(1, epoch, epoch)
         plt.clf()
         y = train_gaze_logs
-        plt.title('MPII Loss for Validation')
+        plt.title('MPII Gaze Loss for Validation')
         plt.xlabel('epoch')
-        plt.ylabel('MPII loss (MSE for angular)')
+        plt.ylabel('MPII Gaze loss (MSE for angular)')
         plt.grid(True)
         plt.plot(axis,train_gaze_logs, 'b-')
         plt.savefig('experiments/Validation_Gaze_loss.pdf')
@@ -590,6 +592,7 @@ class Trainer():
 
     def step(self):
         self.scheduler.step()
+        self.make_gaze_model_scheduler.step()
         for i in range(len(self.dual_scheduler)):
             self.dual_scheduler[i].step()
 

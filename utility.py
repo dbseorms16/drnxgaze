@@ -107,6 +107,18 @@ def make_optimizer(opt, my_model):
     return optimizer_function(trainable, **kwargs)
 
 
+def make_gaze_model_optimizer(opt, my_model):
+    trainable = filter(lambda x: x.requires_grad, my_model.parameters())
+    optimizer_function = optim.Adam
+    kwargs = {
+        'betas': (opt.beta1, opt.beta2),
+        'eps': opt.epsilon
+    }
+    kwargs['lr'] = opt.lr
+    kwargs['weight_decay'] = opt.weight_decay
+    
+    return optimizer_function(trainable, **kwargs)
+
 def make_dual_optimizer(opt, dual_models):
     dual_optimizers = []
     for dual_model in dual_models:
@@ -143,6 +155,14 @@ def make_dual_scheduler(opt, dual_optimizers):
 
     return dual_scheduler
 
+def make_gaze_model_scheduler(opt, my_optimizer):
+    scheduler = lrs.CosineAnnealingLR(
+        my_optimizer,
+        float(opt.epochs),
+        eta_min=opt.eta_min
+    )
+
+    return scheduler
 
 def init_model(args):
     # Set the templates here

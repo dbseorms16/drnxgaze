@@ -19,7 +19,7 @@ class Data:
                 trainset,
                 batch_size=args.batch_size,
                 num_workers=args.n_threads,
-                shuffle=True,
+                shuffle=False,
                 pin_memory=not args.cpu
             )
 

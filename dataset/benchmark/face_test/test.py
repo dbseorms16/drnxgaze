@@ -3,7 +3,7 @@ import shutil
 
 label_txt = open("C:/Users/admin/Desktop/DRNXGAZE/dataset/integrated_label(validation).txt" , "r")
 labels = label_txt.readlines()
-a = glob("C:/Users/admin/Desktop/DRNXGAZE/dataset/benchmark/face_test/LR_bicubic/x2/*.jpg")
+a = glob("C:/Users/admin/Desktop/DRNXGAZE/dataset/benchmark/face_test/LR_bicubic/x4/*.jpg")
 
 file1 = []
 
@@ -16,10 +16,10 @@ for aa in a :
 print(len(labels))
 for name in labels:
     filename = name.split(',')[0]
-    filename = filename+'x2'
+    filename = filename+'x4'
     if filename in file1:
-        shutil.copyfile("C:/Users/admin/Desktop/DRNXGAZE/dataset/benchmark/face_test/LR_bicubic/x2/"+filename+".jpg",
-                         "C:/Users/admin/Desktop/DRNXGAZE/dataset/benchmark/face_test/LR_bicubic/x22/"+filename+".jpg")
+        shutil.copyfile("C:/Users/admin/Desktop/DRNXGAZE/dataset/benchmark/face_test/LR_bicubic/x4/"+filename+".jpg",
+                         "C:/Users/admin/Desktop/DRNXGAZE/dataset/benchmark/face_test/LR_bicubic/x44/"+filename+".jpg")
 
 
 
