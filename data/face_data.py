@@ -10,6 +10,6 @@ class face_data(srdata.SRData):
 
     def _set_filesystem(self, data_dir):
         super(face_data, self)._set_filesystem(data_dir)
-        self.dir_hr = os.path.join(self.apath, 'face_data_HR')
-        self.dir_lr = os.path.join(self.apath, 'face_data_LR_bicubic')
+        self.dir_hr = os.path.join(self.apath, 'HR')
+        self.dir_lr = os.path.join(self.apath, 'LR')
 

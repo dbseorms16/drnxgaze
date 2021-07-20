@@ -43,11 +43,11 @@ parser.add_argument('--negval', type=float, default=0.2,
                     help='Negative value parameter for Leaky ReLU')
 # parser.add_argument('--test_every', type=int, default = 12,
 #                     help='do test per every N batches')
-parser.add_argument('--test_every', type=int, default = 6250,
+parser.add_argument('--test_every', type=int, default = 2500,
                     help='do test per every N batches')
 parser.add_argument('--epochs', type=int, default=10000,
                     help='number of epochs to train')
-parser.add_argument('--batch_size', type=int, default=8,             
+parser.add_argument('--batch_size', type=int, default=10,             
                     help='input batch size for training')
 # parser.add_argument('--batch_size', type=int, default=8,
 #                     help='input batch size for training')

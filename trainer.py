@@ -39,7 +39,7 @@ class Trainer():
         
         self.gaze_model = gaze_model
         self.gaze_model_optimizer = utility.make_gaze_model_optimizer(opt, self.gaze_model)
-        self.gaze_model_schedule = utility.make_gaze_model_scheduler(opt, self.gaze_model_optimizer)
+        self.gaze_model_scheduler = utility.make_gaze_model_scheduler(opt, self.gaze_model_optimizer)
         self.error_last = 1e8
         
         self.endPoint_flag = True
@@ -50,7 +50,8 @@ class Trainer():
         # gaze_train 시 sr Freeze
         if self.opt.freeze == 'sr' :
             for name, param in self.model.named_parameters():
-                    param.requires_grad = False
+                param.requires_grad = False
+
             for i in range(len(self.dual_models)):
                 for name, param in self.dual_models[i].named_parameters():
                     param.requires_grad = False
@@ -78,6 +79,7 @@ class Trainer():
         timer_data, timer_model = utility.timer(), utility.timer()
         detection_count = 0
         psnr = 0
+        total_gaze = 0
         for batch, (lr, hr, image_names) in enumerate(self.loader_train):
             # print("loader_train length : ",len(self.loader_train))
             lr, hr = self.prepare(lr, hr)
@@ -166,6 +168,7 @@ class Trainer():
 
             angular_out = self.gaze_model(le_c_list, re_c_list, head_batch_label)
             gaze_loss  = computeGazeLoss(angular_out, gaze_batch_label)
+            total_gaze += gaze_loss
             # ----------------save gaze image------------------
 
             # if len(le_c_list[-1]) == 0 or len(re_c_list[-1]) == 0:
@@ -189,11 +192,12 @@ class Trainer():
             batch_gaze_loss.append(gaze_loss.item())
 
             # compute total loss
-            loss = loss_primary + loss_dual * self.opt.dual_weight + gaze_loss 
+            # loss = loss_primary + loss_dual * self.opt.dual_weight + gaze_loss 
+            loss = gaze_loss 
             L1_loss = loss_primary + loss_dual * self.opt.dual_weight
-            
             if loss.item() < self.opt.skip_threshold * self.error_last:
                 loss.backward(retain_graph=True)
+                
                 # print("backward: "+str(loss.item()))
                 self.optimizer.step()
                 self.gaze_model_optimizer.step()
@@ -215,12 +219,7 @@ class Trainer():
                     timer_model.release(),
                     timer_data.release()))
             timer_data.tic()
-        print("Detected images : ", detection_count)
         total_detected += detection_count
-        print("loss_primary : ", loss_primary)
-        print("loss_dual : ", loss_dual)
-        print("loss_gaze : ", gaze_loss / 8)
-
           # ------------draw L1 loss graph -----------
         log_path = "experiments/loss_log(training).log"
 
@@ -290,13 +289,13 @@ class Trainer():
         plt.close('all')
 
         # ------------draw gaze loss graph -----------
-        epoch_gaze_loss = 0 
-        for loss in batch_gaze_loss:
-            epoch_gaze_loss += loss
-            a = epoch_gaze_loss
-        epoch_gaze_loss /= detection_count
-        print("epoch_gaze_loss",epoch_gaze_loss)
-        print("---------------------------------------------------")
+        epoch_gaze_loss = 0
+        ave_gaze = total_gaze.item() / total_detected
+        # for loss in batch_gaze_loss:
+        #     epoch_gaze_loss += loss
+        #     a = epoch_gaze_loss
+        # epoch_gaze_loss /= (batch+1)
+        print("epoch_gaze_loss", ave_gaze)
         log_path = "experiments/gaze_loss(train).log"
         
         if epoch == 1:
@@ -304,7 +303,7 @@ class Trainer():
         else:
             lf = open(log_path, "a")
 
-        lf.write(str(epoch_gaze_loss)+"\n")
+        lf.write(str(ave_gaze)+"\n")
         lf.close()
 
         gaze_logs = []
@@ -356,7 +355,6 @@ class Trainer():
         self.ckp.add_log(torch.zeros(1, 1))
         self.model.eval()
         self.gaze_model.eval()
-
         timer_test = utility.timer()
         total_gaze = 0
         detected_img = 0
@@ -416,7 +414,6 @@ class Trainer():
                 
                     # ------------ 3. Compute gaze loss (Validation) -----------
                     le_c_list , re_c_list, detected_list = generateEyePatches(sr)
-                    # le_c_list , re_c_list, detected_list = generateEyePatches(hr)
         
                     if type(le_c_list) != torch.Tensor :
                         continue
@@ -429,7 +426,6 @@ class Trainer():
                     angular_out = self.gaze_model(le_c_list, re_c_list, head_batch_label)
                     gaze_loss = computeGazeLoss(angular_out, gaze_batch_label)
                     # print(filename, angular_out, gaze_loss)
-
                     total_gaze += gaze_loss
                     detected_img += 1
 
@@ -443,8 +439,8 @@ class Trainer():
                 validation_psnr = eval_psnr / len(self.loader_test)
                 # best 모델 저장 gaze Loss 로 변경
                 self.ckp.log[-1, si] = total_gaze / len(self.loader_test)
-                
                 best = self.ckp.log.min(0)
+                # best = self.ckp.log.max(0)
                 # print('eval gaze loss {:.4f}:'.format(best))
                 self.ckp.write_log(
                     '[{} x{}]\GAZE LOSS: {:.4f} (Best: {:.4f} @epoch {})'.format(
@@ -456,12 +452,9 @@ class Trainer():
                 )
                 
                 # print("TOTAL IMAGES : ", detected_img)
-                print("TOTAL GAZE : ", gaze_loss)
-                print("TOTAL GAZE : ", gaze_loss / detected_img)
                 # print('SIMM:',eval_simm)
                 # print('DRN loss : ', DRN_loss)
 
-        
         if not self.opt.test_only:
             self.ckp.save(self, epoch, is_best=(best[1][0] + 1 == epoch))
             Gaze_model_save(self.opt, self.gaze_model, is_best=(best[1][0] + 1 == epoch))
@@ -471,68 +464,68 @@ class Trainer():
         )
 
         print("Detected_image : ", detected_img)
-        print("loss_primary : ", loss_primary)
+        print("L1_loss : ", L1_loss)
         print('Total_gaze : ', total_gaze)
         print('average : ', total_gaze / detected_img)
 
         # ------------draw psnr validation graph -----------
-        log_path = "experiments/psnr_log(validation).log"
+        log_path_psnr = "experiments/psnr_log_new(validation).log"
 
         if epoch == 1:
-            lf =open(log_path, "w+")
+            lf =open(log_path_psnr, "w+")
         else:
-            lf = open(log_path, "a")
+            lf = open(log_path_psnr, "a")
         
         lf.write(str(validation_psnr)+"\n")
         lf.close()
 
-        psnr_logs = []
-        lf = open(log_path, "r")
-        psnr_log = lf.readline()
-        while(psnr_log !=""):
-            psnr_logs.append(float(psnr_log))
-            psnr_log = lf.readline()
+        # psnr_logs = []
+        # lf = open(log_path_psnr, "r")
+        # psnr_log = lf.readline()
+        # while(psnr_log !=""):
+        #     psnr_logs.append(float(psnr_log))
+        #     psnr_log = lf.readline()
         
-        axis = np.linspace(1, epoch, epoch)
-        label = 'SR on Validation set'
-        fig = plt.figure()
-        plt.title(label)
-        for idx_scale, scale in enumerate([self.opt.scale[0]]):
-            plt.plot(
-                axis,
-                psnr_logs,
-                label='Scale {}'.format(scale)
-            )
-        plt.legend()
-        plt.xlabel('Epochs')
-        plt.ylabel('PSNR')
-        plt.grid(True)
-        # plt.savefig('{}/test_{}.pdf'.format(self.dir, self.opt.data_test))
-        plt.savefig('./experiments/Validation_PSNR.pdf')
-        plt.close(fig)
-        plt.close("all")
+        # axis = np.linspace(1, epoch, epoch)
+        # label = 'SR on Validation set'
+        # fig = plt.figure()
+        # plt.title(label)
+        # for idx_scale, scale in enumerate([self.opt.scale[0]]):
+        #     plt.plot(
+        #         axis,
+        #         psnr_logs,
+        #         label='Scale {}'.format(scale)
+        #     )
+        # plt.legend()
+        # plt.xlabel('Epochs')
+        # plt.ylabel('PSNR')
+        # plt.grid(True)
+        # # plt.savefig('{}/test_{}.pdf'.format(self.dir, self.opt.data_test))
+        # plt.savefig('./experiments/Validation_PSNR.pdf')
+        # plt.close(fig)
+        # plt.close("all")
 
         # ------------draw gaze loss graph (validation)-----------
-
-        total_gaze /= detected_img
         # Loss가 너무 많이 튀면 보기 힘들어서 한계치 
-        if total_gaze >= 0.2:
-            total_gaze = 0.2
         log_path = "experiments/gaze_loss(validation).log"
         
         epoch = self.scheduler.last_epoch
+        total_gaze = total_gaze.item()
+        ave_gaze_val = total_gaze / detected_img
 
         if epoch == 1:
             val_log =open(log_path, "w+")
         else:
             val_log = open(log_path, "a")
 
-        val_log.write(str(float(total_gaze))+"\n")
+        val_log.write(str(float(ave_gaze_val))+"\n")
         val_log.close()
 
         train_gaze_logs = []
         val_log = open(log_path, "r")
         gaze_log = val_log.readline()
+        if float(gaze_log) >= 1:
+            gaze_log = 1
         while(gaze_log !=""):
             train_gaze_logs.append(float(gaze_log))
             gaze_log = val_log.readline()
@@ -559,18 +552,18 @@ class Trainer():
         plt.close("all")
 
         # ------------draw L1 loss graph (validation)-----------
-        log_path = "experiments/loss_log(validation).log"
+        log_path_L1 = "experiments/loss_log(validation).log"
 
         if epoch == 1:
-            lf =open(log_path, "w+")
+            lf =open(log_path_L1, "w+")
         else:
-            lf = open(log_path, "a")
+            lf = open(log_path_L1, "a")
         
         lf.write(str(L1_loss)+ "\n")
         lf.close()
 
         loss_logs = []
-        lf = open(log_path, "r")
+        lf = open(log_path_L1, "r")
         loss_log = lf.readline()
         while(loss_log !=""):
             loss_logs.append(float(loss_log))
@@ -588,11 +581,12 @@ class Trainer():
         plt.savefig('./experiments/Validation_L1_loss.pdf')
         plt.close(fig)
         plt.close("all")
+        self.loss2.end_log(len(self.loader_test))
 
 
     def step(self):
         self.scheduler.step()
-        self.make_gaze_model_scheduler.step()
+        self.gaze_model_scheduler.step()
         for i in range(len(self.dual_scheduler)):
             self.dual_scheduler[i].step()
 
