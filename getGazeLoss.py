@@ -117,7 +117,6 @@ def Gaze_model_save(opt, gaze_model, is_best=False):
                 gaze_model.state_dict(),
                 os.path.join(path, 'gaze_model_best.pt')
             )
-
 def loadLabel(labels,names):
     gaze_batch_label = []
     head_batch_label = []
@@ -126,35 +125,23 @@ def loadLabel(labels,names):
     #load label
     for name in names:
         #image name  : ex) s014_8465
-
-        subj = name.split('_')[0]
-        file_num = name.split('_')[1]
-        file_num = f'{file_num:0>6}'
-        image_name = subj+'_'+file_num
         
         #이진 탐색
         #label : idx, head1, head2, gaze1, gaze2, time
         start = 0
         end = len(labels) -1
         while start <= end:
-            mid = (start + end) // 2
             # row
-            label = labels[mid].split(",")
-            # txt -> readlines
-            name_label = label[0].split("_")
-            # name split
-            curr_name = f'{name_label[0]}_{name_label[1]:0>6}'
-            # print(curr_name)
-            if curr_name == image_name:
+            label = labels[start].split(",")
+            label_name = label[0]
+            if label_name == name:
                 head_batch_label.append([float(label[1]),float(label[2])])
                 gaze_batch_label.append([float(label[3]),float(label[4])])
 
                 flag =True
                 break
-            elif curr_name < image_name:
-                start = mid+1
             else:
-                end = mid-1
+                start = start+1
 
         if not flag:
             print("ERROR:: label not found")

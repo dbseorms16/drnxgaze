@@ -21,7 +21,6 @@ if checkpoint.ok:
     loader = data.Data(args)
     model = model.Model(args, checkpoint)
     gaze_model = GazeModel(args).cuda()
-
     # loss = loss.Loss(args, checkpoint) if not args.test_only else None
     loss = loss.Loss(args, checkpoint)
     t = Trainer(args, loader, model, gaze_model, loss, checkpoint)

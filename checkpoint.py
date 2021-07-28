@@ -50,7 +50,7 @@ class Checkpoint():
         # Plot saved here!
         # trainer.loss.plot_loss(self.dir, epoch)
 
-        self.plot_psnr(epoch)
+        # self.plot_psnr(epoch)
         torch.save(self.log, os.path.join(self.dir, 'psnr_log.pt'))
         torch.save(
             trainer.optimizer.state_dict(),

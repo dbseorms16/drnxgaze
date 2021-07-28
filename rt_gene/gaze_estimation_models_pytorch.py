@@ -275,7 +275,7 @@ class GazeModel(nn.Module):
             print('Loading gaze model from {}'.format(pre_gaze))
             self.model.load_state_dict(
                 torch.load(pre_gaze, **kwargs),
-                strict=False
+                strict=True
             )
     def forward(self, le_c_list, re_c_list, head_batch_label):
         return self.model(le_c_list, re_c_list, head_batch_label)
